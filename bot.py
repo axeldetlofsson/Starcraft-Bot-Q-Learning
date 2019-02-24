@@ -46,8 +46,9 @@ class TerranAgent(base_agent.BaseAgent):
           else:
             self.attack_coordinates = (12, 16)
 
+        scvs = self.get_units_by_type(obs, units.Terran.SCV)
         marines= self.get_units_by_type(obs, units.Terran.Marine)
-        if len(marines) >= 10:
+        if len(marines) >= 100:
             if self.unit_type_is_selected(obs, units.Terran.Marine):
                 if self.can_do(obs, actions.FUNCTIONS.Attack_minimap.id):
                     return actions.FUNCTIONS.Attack_minimap("now", self.attack_coordinates)
@@ -55,9 +56,7 @@ class TerranAgent(base_agent.BaseAgent):
                 if self.can_do(obs, actions.FUNCTIONS.select_army.id):
                     return actions.FUNCTIONS.select_army("select")
 
-
         free_supply = (obs.observation.player.food_cap - obs.observation.player.food_used)
-        scvs = self.get_units_by_type(obs, units.Terran.SCV)
         if free_supply < 4:
             if self.unit_type_is_selected(obs, units.Terran.SCV):
                 if self.can_do(obs, actions.FUNCTIONS.Build_SupplyDepot_screen.id):
@@ -67,6 +66,15 @@ class TerranAgent(base_agent.BaseAgent):
             if len(scvs) > 0:
                 scv = random.choice(scvs)
                 return actions.FUNCTIONS.select_point("select", (scv.x, scv.y))
+
+        if len(scvs) < len(marines) or len(scvs) < 34:
+            if self.unit_type_is_selected(obs, units.Terran.CommandCenter):
+                print("here too")
+                if self.can_do(obs, actions.FUNCTIONS.Train_SCV_quick.id):
+                    return actions.FUNCTIONS.Train_SCV_quick("now")
+            commandc = self.get_units_by_type(obs, units.Terran.CommandCenter)
+            command = random.choice(commandc)
+            return actions.FUNCTIONS.select_point("select", (command.x, command.y))
 
         barracks = self.get_units_by_type(obs, units.Terran.Barracks)
         if len(barracks) < 2:
@@ -80,7 +88,6 @@ class TerranAgent(base_agent.BaseAgent):
             barrack = random.choice(barracks)
             if self.unit_type_is_selected(obs, units.Terran.Barracks):
                 if self.can_do(obs, actions.FUNCTIONS.Train_Marine_quick.id):
-                    print("mate it")
                     return actions.FUNCTIONS.Train_Marine_quick("now")
             return actions.FUNCTIONS.select_point("select", (barrack.x, barrack.y))
 
