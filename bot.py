@@ -1,3 +1,7 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 from pysc2.agents import base_agent
 from pysc2.env import sc2_env
 from pysc2.lib import actions, features, units
@@ -5,84 +9,84 @@ from absl import app
 import random
 
 class TerranAgent(base_agent.BaseAgent):
-  def __init__(self):
-    super(TerranAgent, self).__init__()
+    def __init__(self):
+        super(TerranAgent, self).__init__()
 
-    self.attack_coordinates = None
+        self.attack_coordinates = None
 
-  def unit_type_is_selected(self, obs, unit_type):
-    if (len(obs.observation.single_select) > 0 and
-        obs.observation.single_select[0].unit_type == unit_type):
-      return True
+    def unit_type_is_selected(self, obs, unit_type):
+        if (len(obs.observation.single_select) > 0 and
+            obs.observation.single_select[0].unit_type == unit_type):
+          return True
 
-    if (len(obs.observation.multi_select) > 0 and
-        obs.observation.multi_select[0].unit_type == unit_type):
-      return True
+          if (len(obs.observation.multi_select) > 0 and
+          obs.observation.multi_select[0].unit_type == unit_type):
+            return True
 
-    return False
+        return False
 
-  def get_units_by_type(self, obs, unit_type):
-    return [unit for unit in obs.observation.feature_units
-            if unit.unit_type == unit_type]
+    def get_units_by_type(self, obs, unit_type):
+        return [unit for unit in obs.observation.feature_units
+                if unit.unit_type == unit_type]
 
-  def can_do(self, obs, action):
-    return action in obs.observation.available_actions
+    def can_do(self, obs, action):
+        return action in obs.observation.available_actions
 
-  def step(self, obs):
-    super(TerranAgent, self).step(obs)
+    def step(self, obs):
+        super(TerranAgent, self).step(obs)
 
-    if obs.first():
-      player_y, player_x = (obs.observation.feature_minimap.player_relative ==
-                            features.PlayerRelative.SELF).nonzero()
-      xmean = player_x.mean()
-      ymean = player_y.mean()
+        if obs.first():
+          player_y, player_x = (obs.observation.feature_minimap.player_relative ==
+                                features.PlayerRelative.SELF).nonzero()
+          xmean = player_x.mean()
+          ymean = player_y.mean()
 
-      if xmean <= 31 and ymean <= 31:
-        self.attack_coordinates = (49, 49)
-      else:
-        self.attack_coordinates = (12, 16)
+          if xmean <= 31 and ymean <= 31:
+            self.attack_coordinates = (49, 49)
+          else:
+            self.attack_coordinates = (12, 16)
 
-    marines= self.get_units_by_type(obs, units.Terran.Marine)
-    if len(marines) >= 10:
-      if self.unit_type_is_selected(obs, units.Terran.Marine):
-        if self.can_do(obs, actions.FUNCTIONS.Attack_minimap.id):
-          return actions.FUNCTIONS.Attack_minimap("now", self.attack_coordinates)
+        marines= self.get_units_by_type(obs, units.Terran.Marine)
+        if len(marines) >= 10:
+            if self.unit_type_is_selected(obs, units.Terran.Marine):
+                if self.can_do(obs, actions.FUNCTIONS.Attack_minimap.id):
+                    return actions.FUNCTIONS.Attack_minimap("now", self.attack_coordinates)
 
-      if self.can_do(obs, actions.FUNCTIONS.select_army.id):
-        return actions.FUNCTIONS.select_army("select")
+                if self.can_do(obs, actions.FUNCTIONS.select_army.id):
+                    return actions.FUNCTIONS.select_army("select")
 
-    supplydepot = self.get_units_by_type(obs, units.Terran.SupplyDepot)
-    if len(supplydepot) == 0:
-      if self.unit_type_is_selected(obs, units.Terran.SCV):
-        if self.can_do(obs, actions.FUNCTIONS.Build_SupplyDepot_screen.id):
-          x = random.randint(0, 83)
-          y = random.randint(0, 83)
 
-          return actions.FUNCTIONS.Build_SupplyDepot_screen("now", (x, y))
+        free_supply = (obs.observation.player.food_cap - obs.observation.player.food_used)
+        scvs = self.get_units_by_type(obs, units.Terran.SCV)
+        if free_supply < 4:
+            if self.unit_type_is_selected(obs, units.Terran.SCV):
+                if self.can_do(obs, actions.FUNCTIONS.Build_SupplyDepot_screen.id):
+                    x = random.randint(0, 83)
+                    y = random.randint(0, 83)
+                    return actions.FUNCTIONS.Build_SupplyDepot_screen("now", (x, y))
+            if len(scvs) > 0:
+                scv = random.choice(scvs)
+                return actions.FUNCTIONS.select_point("select", (scv.x, scv.y))
 
-      scvs = self.get_units_by_type(obs, units.Terran.SCV)
-      if len(scvs) > 0:
-        scv = random.choice(scvs)
+        barracks = self.get_units_by_type(obs, units.Terran.Barracks)
+        if len(barracks) < 2:
+            if self.unit_type_is_selected(obs, units.Terran.SCV):
+                if self.can_do(obs, actions.FUNCTIONS.Build_Barracks_screen.id):
+                  x = random.randint(0, 83)
+                  y = random.randint(0, 83)
+                  return actions.FUNCTIONS.Build_Barracks_screen("now", (x, y))
 
-        return actions.FUNCTIONS.select_point("select_all_type", (scv.x, scv.y))
+        if len(barracks) > 1:
+            barrack = random.choice(barracks)
+            if self.unit_type_is_selected(obs, units.Terran.Barracks):
+                if self.can_do(obs, actions.FUNCTIONS.Train_Marine_quick.id):
+                    print("mate it")
+                    return actions.FUNCTIONS.Train_Marine_quick("now")
+            return actions.FUNCTIONS.select_point("select", (barrack.x, barrack.y))
 
-    if self.unit_type_is_selected(obs, units.Zerg.Larva):
-      free_supply = (obs.observation.player.food_cap -
-                     obs.observation.player.food_used)
-      if free_supply == 0:
-        if self.can_do(obs, actions.FUNCTIONS.Train_Overlord_quick.id):
-          return actions.FUNCTIONS.Train_Overlord_quick("now")
 
-      if self.can_do(obs, actions.FUNCTIONS.Train_Zergling_quick.id):
-        return actions.FUNCTIONS.Train_Zergling_quick("now")
 
-    larvae = self.get_units_by_type(obs, units.Zerg.Larva)
-    if len(larvae) > 0:
-      larva = random.choice(larvae)
-
-      return actions.FUNCTIONS.select_point("select_all_type", (larva.x, larva.y))
-
-    return actions.FUNCTIONS.no_op()
+        return actions.FUNCTIONS.no_op()
 
 def main(unused_argv):
   agent = TerranAgent()
