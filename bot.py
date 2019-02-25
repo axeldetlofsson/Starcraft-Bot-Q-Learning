@@ -35,29 +35,28 @@ class TerranAgent(base_agent.BaseAgent):
     def step(self, obs):
         super(TerranAgent, self).step(obs)
 
-        if obs.first():
-          player_y, player_x = (obs.observation.feature_minimap.player_relative ==
-                                features.PlayerRelative.SELF).nonzero()
-          xmean = player_x.mean()
-          ymean = player_y.mean()
 
-          if xmean <= 31 and ymean <= 31:
-            self.attack_coordinates = (49, 49)
-          else:
-            self.attack_coordinates = (12, 16)
+        if obs.first():
+            player_y, player_x = (obs.observation.feature_minimap.player_relative ==
+                                    features.PlayerRelative.SELF).nonzero()
+            xmean = player_x.mean()
+            ymean = player_y.mean()
+
+            if xmean <= 31 and ymean <= 31:
+                self.attack_coordinates = (49, 49)
+            else:
+                self.attack_coordinates = (12, 16)
 
         scvs = self.get_units_by_type(obs, units.Terran.SCV)
         marines= self.get_units_by_type(obs, units.Terran.Marine)
-        if len(marines) >= 100:
+        if len(marines) >= 12:
             if self.unit_type_is_selected(obs, units.Terran.Marine):
-                if self.can_do(obs, actions.FUNCTIONS.Attack_minimap.id):
                     return actions.FUNCTIONS.Attack_minimap("now", self.attack_coordinates)
-
-                if self.can_do(obs, actions.FUNCTIONS.select_army.id):
-                    return actions.FUNCTIONS.select_army("select")
-
+            if self.can_do(obs, actions.FUNCTIONS.select_army.id):
+                return actions.FUNCTIONS.select_army("select")
         free_supply = (obs.observation.player.food_cap - obs.observation.player.food_used)
-        if free_supply < 4:
+
+        if free_supply < 1:
             if self.unit_type_is_selected(obs, units.Terran.SCV):
                 if self.can_do(obs, actions.FUNCTIONS.Build_SupplyDepot_screen.id):
                     x = random.randint(0, 83)
@@ -66,23 +65,25 @@ class TerranAgent(base_agent.BaseAgent):
             if len(scvs) > 0:
                 scv = random.choice(scvs)
                 return actions.FUNCTIONS.select_point("select", (scv.x, scv.y))
-
-        if len(scvs) < len(marines) or len(scvs) < 34:
+        if len(scvs) <= 19 or len(scvs)/obs.observation.player.food_cap <0.3:
             if self.unit_type_is_selected(obs, units.Terran.CommandCenter):
-                print("here too")
-                if self.can_do(obs, actions.FUNCTIONS.Train_SCV_quick.id):
-                    return actions.FUNCTIONS.Train_SCV_quick("now")
+                if len(obs.observation.build_queue) <= 1:
+                    if self.can_do(obs, actions.FUNCTIONS.Train_SCV_quick.id):
+                        return actions.FUNCTIONS.Train_SCV_quick("now")
             commandc = self.get_units_by_type(obs, units.Terran.CommandCenter)
             command = random.choice(commandc)
             return actions.FUNCTIONS.select_point("select", (command.x, command.y))
 
         barracks = self.get_units_by_type(obs, units.Terran.Barracks)
-        if len(barracks) < 2:
+        if len(barracks) <= 1:
             if self.unit_type_is_selected(obs, units.Terran.SCV):
                 if self.can_do(obs, actions.FUNCTIONS.Build_Barracks_screen.id):
-                  x = random.randint(0, 83)
-                  y = random.randint(0, 83)
-                  return actions.FUNCTIONS.Build_Barracks_screen("now", (x, y))
+                    x = random.randint(0, 83)
+                    y = random.randint(0, 83)
+                    return actions.FUNCTIONS.Build_Barracks_screen("now", (x, y))
+            if len(scvs) > 0:
+                scv = random.choice(scvs)
+                return actions.FUNCTIONS.select_point("select", (scv.x, scv.y))
 
         if len(barracks) > 1:
             barrack = random.choice(barracks)
