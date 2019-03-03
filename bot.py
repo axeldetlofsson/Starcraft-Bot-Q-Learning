@@ -11,9 +11,7 @@ import random
 class TerranAgent(base_agent.BaseAgent):
     def __init__(self):
         super(TerranAgent, self).__init__()
-
         self.attack_coordinates = None
-
     def unit_type_is_selected(self, obs, unit_type):
         if (len(obs.observation.single_select) > 0 and
             obs.observation.single_select[0].unit_type == unit_type):
@@ -34,8 +32,6 @@ class TerranAgent(base_agent.BaseAgent):
 
     def step(self, obs):
         super(TerranAgent, self).step(obs)
-
-
         if obs.first():
             player_y, player_x = (obs.observation.feature_minimap.player_relative ==
                                     features.PlayerRelative.SELF).nonzero()
@@ -51,12 +47,12 @@ class TerranAgent(base_agent.BaseAgent):
         marines= self.get_units_by_type(obs, units.Terran.Marine)
         if len(marines) >= 12:
             if self.unit_type_is_selected(obs, units.Terran.Marine):
-                    return actions.FUNCTIONS.Attack_minimap("now", self.attack_coordinates)
+                return actions.FUNCTIONS.Attack_minimap("now", self.attack_coordinates)
             if self.can_do(obs, actions.FUNCTIONS.select_army.id):
                 return actions.FUNCTIONS.select_army("select")
         free_supply = (obs.observation.player.food_cap - obs.observation.player.food_used)
 
-        if free_supply < 1:
+        if free_supply < 2:
             if self.unit_type_is_selected(obs, units.Terran.SCV):
                 if self.can_do(obs, actions.FUNCTIONS.Build_SupplyDepot_screen.id):
                     x = random.randint(0, 83)
@@ -65,6 +61,7 @@ class TerranAgent(base_agent.BaseAgent):
             if len(scvs) > 0:
                 scv = random.choice(scvs)
                 return actions.FUNCTIONS.select_point("select", (scv.x, scv.y))
+
         if len(scvs) <= 19 or len(scvs)/obs.observation.player.food_cap <0.3:
             if self.unit_type_is_selected(obs, units.Terran.CommandCenter):
                 if len(obs.observation.build_queue) <= 1:
@@ -91,8 +88,6 @@ class TerranAgent(base_agent.BaseAgent):
                 if self.can_do(obs, actions.FUNCTIONS.Train_Marine_quick.id):
                     return actions.FUNCTIONS.Train_Marine_quick("now")
             return actions.FUNCTIONS.select_point("select", (barrack.x, barrack.y))
-
-
 
         return actions.FUNCTIONS.no_op()
 
