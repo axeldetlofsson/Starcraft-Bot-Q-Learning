@@ -98,16 +98,22 @@ class SmartAgent(base_agent.BaseAgent):
         self.previous_killed_building_score = 0
         self.previous_action = None
         self.previous_state = None
+
+    def get_units_by_type(self, obs, unit_type):
+        return [unit for unit in obs.observation.feature_units
+                if unit.unit_type == unit_type]
+
     def transformLocation(self, x, x_distance, y, y_distance):
         if not self.base_top_left:
             return [x - x_distance, y - y_distance]
         return [x + x_distance, y + y_distance]
+
     def step(self, obs):
         super(SmartAgent, self).step(obs)
         player_y, player_x = (obs.observation['feature_minimap'][_PLAYER_RELATIVE] == _PLAYER_SELF).nonzero()
         self.base_top_left = 1 if player_y.any() and player_y.mean() <= 31 else 0
         unit_type = obs.observation['feature_screen'][_UNIT_TYPE]
-
+        print(unit_type)
         depot_y, depot_x = (unit_type == _TERRAN_SUPPLY_DEPOT).nonzero()
         supply_depot_count = supply_depot_count = 1 if depot_y.any() else 0
 
@@ -117,12 +123,14 @@ class SmartAgent(base_agent.BaseAgent):
         army_supply = obs.observation['player'][5]
         killed_unit_score = obs.observation['score_cumulative'][5]
         killed_building_score = obs.observation['score_cumulative'][6]
+
         current_state = [
             supply_depot_count,
             barracks_count,
             supply_limit,
             army_supply,
         ]
+
         if self.previous_action is not None:
             reward = 0
             if killed_unit_score > self.previous_killed_unit_score:
@@ -130,12 +138,14 @@ class SmartAgent(base_agent.BaseAgent):
             if killed_building_score > self.previous_killed_building_score:
                 reward += KILL_BUILDING_REWARD
             self.qlearn.learn(str(self.previous_state), self.previous_action, reward, str(current_state))
+
         rl_action = self.qlearn.choose_action(str(current_state))
         smart_action = smart_actions[rl_action]
         self.previous_killed_unit_score = killed_unit_score
         self.previous_killed_building_score = killed_building_score
         self.previous_state = current_state
         self.previous_action = rl_action
+
         if smart_action == ACTION_DO_NOTHING:
             return actions.FunctionCall(_NO_OP, [])
 
@@ -146,6 +156,7 @@ class SmartAgent(base_agent.BaseAgent):
                 i = random.randint(0, len(unit_y) - 1)
                 target = [unit_x[i], unit_y[i]]
                 return actions.FunctionCall(_SELECT_POINT, [_NOT_QUEUED, target])
+
         elif smart_action == ACTION_BUILD_SUPPLY_DEPOT:
             if _BUILD_SUPPLY_DEPOT in obs.observation['available_actions']:
                 unit_type = obs.observation['feature_screen'][_UNIT_TYPE]
@@ -153,6 +164,7 @@ class SmartAgent(base_agent.BaseAgent):
                 if unit_y.any():
                     target = self.transformLocation(int(unit_x.mean()), 0, int(unit_y.mean()), 20)
                     return actions.FunctionCall(_BUILD_SUPPLY_DEPOT, [_NOT_QUEUED, target])
+
         elif smart_action == ACTION_BUILD_BARRACKS:
             if _BUILD_BARRACKS in obs.observation['available_actions']:
                 unit_type = obs.observation['feature_screen'][_UNIT_TYPE]
@@ -160,22 +172,27 @@ class SmartAgent(base_agent.BaseAgent):
                 if unit_y.any():
                     target = self.transformLocation(int(unit_x.mean()), 20, int(unit_y.mean()), 0)
                     return actions.FunctionCall(_BUILD_BARRACKS, [_NOT_QUEUED, target])
+
         elif smart_action == ACTION_SELECT_BARRACKS:
             unit_type = obs.observation['feature_screen'][_UNIT_TYPE]
             unit_y, unit_x = (unit_type == _TERRAN_BARRACKS).nonzero()
             if unit_y.any():
                 target = [int(unit_x.mean()), int(unit_y.mean())]
                 return actions.FunctionCall(_SELECT_POINT, [_NOT_QUEUED, target])
+
         elif smart_action == ACTION_BUILD_MARINE:
             if _TRAIN_MARINE in obs.observation['available_actions']:
                 return actions.FunctionCall(_TRAIN_MARINE, [_QUEUED])
+
         elif smart_action == ACTION_SELECT_ARMY:
             if _SELECT_ARMY in obs.observation['available_actions']:
                 return actions.FunctionCall(_SELECT_ARMY, [_NOT_QUEUED])
+
         elif smart_action == ACTION_ATTACK:
             if _ATTACK_MINIMAP in obs.observation["available_actions"]:
                 if self.base_top_left:
                     return actions.FunctionCall(_ATTACK_MINIMAP, [_NOT_QUEUED, [39, 45]])
+
                 return actions.FunctionCall(_ATTACK_MINIMAP, [_NOT_QUEUED, [21, 24]])
         return actions.FunctionCall(_NO_OP, [])
 
